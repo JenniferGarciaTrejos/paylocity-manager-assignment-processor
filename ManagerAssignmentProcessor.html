@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manager Assignment Processor</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f0f2f5;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+    padding: 40px;
+    width: 100%;
+    max-width: 640px;
+  }
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    font-size: 0.88rem;
+    color: #666;
+    margin-bottom: 28px;
+  }
+  #drop-zone {
+    border: 2.5px dashed #b0b8c9;
+    border-radius: 10px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: #f8f9fb;
+    position: relative;
+  }
+  #drop-zone.dragover {
+    border-color: #4361ee;
+    background: #eef1fd;
+  }
+  #drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .drop-icon { font-size: 2.4rem; margin-bottom: 10px; }
+  .drop-label { font-size: 1rem; font-weight: 600; color: #333; }
+  .drop-hint { font-size: 0.82rem; color: #888; margin-top: 6px; }
+  #status-area { margin-top: 24px; display: none; }
+  .status-msg {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 500;
+  }
+  .status-processing { background: #fffbea; color: #7a5800; border: 1px solid #f0c040; }
+  .status-success   { background: #edfaf1; color: #1a6e38; border: 1px solid #6fcf97; }
+  .status-warning   { background: #fff8ec; color: #7a4a00; border: 1px solid #f0a030; }
+  #error-panel {
+    margin-top: 20px;
+    background: #fff5f5;
+    border: 1.5px solid #e74c3c;
+    border-radius: 8px;
+    padding: 16px 18px;
+    display: none;
+  }
+  #error-panel h3 { color: #c0392b; font-size: 0.95rem; margin-bottom: 10px; }
+  #error-list { list-style: none; }
+  #error-list li {
+    font-size: 0.84rem;
+    color: #7b1e1e;
+    padding: 3px 0;
+    border-bottom: 1px solid #f5c6c6;
+  }
+  #error-list li:last-child { border-bottom: none; }
+  #results-panel {
+    margin-top: 20px;
+    display: none;
+  }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 14px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    margin-bottom: 6px;
+    background: #f0f4ff;
+  }
+  .result-row .label { color: #444; font-weight: 500; }
+  .result-row .count { color: #4361ee; font-weight: 700; font-size: 1rem; }
+  .result-row.skipped { background: #fffbea; }
+  .result-row.skipped .count { color: #b07a00; }
+  #reset-btn {
+    margin-top: 22px;
+    width: 100%;
+    padding: 11px;
+    background: #4361ee;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: none;
+  }
+  #reset-btn:hover { background: #3451d1; }
+  .dl-btn {
+    width: 100%;
+    padding: 11px;
+    background: #1a6e38;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    text-align: left;
+  }
+  .dl-btn:hover { background: #155c2e; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Manager Assignment Processor</h1>
+  <p class="subtitle">Drop a Changes_[Date].xlsx file to generate Sabal and AHM assignment files.</p>
+
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept=".xlsx">
+    <div class="drop-icon">📂</div>
+    <div class="drop-label">Drop Changes file here</div>
+    <div class="drop-hint">or click to browse &nbsp;·&nbsp; .xlsx only</div>
+  </div>
+
+  <div id="status-area">
+    <div id="status-msg" class="status-msg"></div>
+  </div>
+
+  <div id="error-panel">
+    <h3>⛔ Validation Failed — Fix these rows before re-uploading</h3>
+    <ul id="error-list"></ul>
+  </div>
+
+  <div id="results-panel">
+    <div id="result-sabal" class="result-row" style="display:none">
+      <span class="label">Sabal (335308)</span>
+      <span class="count" id="count-sabal">0</span>
+    </div>
+    <div id="result-ahm" class="result-row" style="display:none">
+      <span class="label">AHM (159040)</span>
+      <span class="count" id="count-ahm">0</span>
+    </div>
+    <div id="result-skipped" class="result-row skipped" style="display:none">
+      <span class="label">Skipped (unknown company codes)</span>
+      <span class="count" id="count-skipped">0</span>
+    </div>
+    <button id="btn-sabal" class="dl-btn" style="display:none">⬇ Download Sabal file</button>
+    <button id="btn-ahm" class="dl-btn" style="display:none">⬇ Download AHM file</button>
+  </div>
+
+  <button id="reset-btn" onclick="resetUI()">Process Another File</button>
+</div>
+
+<script>
+// ── 501 template headers (sourced from template.xlsx row 1) ──────────────────
+const TEMPLATE_HEADERS = ["co","id","Record Type","First Name","Last Name","Middle Name","Salutation","Suffix","Nickname","Preferred Name","Prior Last Name","SSN","Birthdate","Gender","Identify by this Gender","Gender Identity","Pronouns","Display Pronouns","Sexual Orientation","Sexual Orientation Description","Ethnicity","1-Ethnic or Racial Identity","2-Ethnic or Racial Identity","3-Ethnic or Racial Identity","4-Ethnic or Racial Identity","Marital Status","Smoker","Address 1","Address 2","City","State","ZipCode","Country","County","Home Phone","Mobile Phone","Personal Email","Hire Date","Employee Status","EmpStatus EffDate","EmpStatus Begin Check Date","EmpStatus Change Reason","Adjusted Seniority Date","Eligible for Rehire","Dept/Pos EffDate","Dept/Pos Change Reason","Supervisor Co","Supervisor","is Supervisor","Reviewer Co","Reviewer","Cost Center 1","Cost Center 2","Cost Center 3","Employee Type","Position Code","Job Title","EEO Class","WCC","Shift","Clock Badge","PayGroup","OT Exempt","Tipped","Min Wage Exempt","Union Code","Union Date","Union Position","Union Fees","Union Dues","PayRate Eff Date","PayRate Begin Check Date","PayRate Change Reason","Pay Type","Salary","Base Rate","Rate Per","Pay Frequency","Default Hours","AutoPay","Pay Grade","Tax Form","Federal W4 Form Year","Federal Filing Status","Fed Exemptions","Federal Amount Type","Federal Amount","Federal Percentage","Federal Higher Rate","Federal Dependents Amount","Federal Other Income Amount","Federal Deductions Amount","Tax State","State W4 Form Year","State Filing Status","State Exemptions","State Amount Type","State Amount","State Percentage","SUI State","State Exemptions 2","State Higher Rate","State Dependents Amount","State Other Income Amount","State Deductions Amount","Employee 943","Supplemental Check","1099R Tax Distribution","FITW Exempt Reason","SITW Exempt Reason","SS Exempt Reason","MED Exempt Reason","FUTA Exempt Reason","SUI Exempt Reason","Non-Primary State Tax Code","Non-Primary State W4 Form Year","Non-Primary State Filing Status","Non-Primary State Exemptions","Non-Primary State exemptions2","Non-Primary State Amount Type","Non-Primary State Amount","Non-Primary State Percentage","Non-Primary State Suppl Check","Non-Primary State Higher Rate","Non-Primary State Dependents Amount","Non-Primary State Other Income Amount","Non-Primary State Deductions Amount","Reciprocity Code","1-Delete Tax Code","1-Local Tax Code","1-Local Tax Exemptions","1-Local Tax Exemptions 2","1-Local Filing Status","1-Work PSD (PA)","1-Resident PSD (PA)","2-Delete Tax Code","2-Local Tax Code","2-Local Tax Exemptions","2-Local Tax Exemptions 2","2-Local Filing Status","2-Work PSD (PA)","2-Resident PSD (PA)","3-Delete Tax Code","3-Local Tax Code","3-Local Tax Exemptions","3-Local Tax Exemptions 2","3-Local Filing Status","3-Work PSD (PA)","3-Resident PSD (PA)","4-Delete Tax Code","4-Local Tax Code","4-Local Tax Exemptions","4-Local Tax Exemptions 2","4-Local Filing Status","4-Work PSD (PA)","4-Resident PSD (PA)","5-Delete Tax Code","5-Local Tax Code","5-Local Tax Exemptions","5-Local Tax Exemptions 2","5-Local Filing Status","5-Work PSD (PA)","5-Resident PSD (PA)","Work Location","Work Address 1","Work Address 2","Work City","Work State","Work ZipCode","Work County","Work Country","Currency","Work Phone","Work Phone Ext","Work Mobile Phone","Pager","Work Email","Direct Deposit Account Type","Direct Deposit Transit #","Direct Deposit Account #","Direct Deposit Skip Pre-Note","Direct Deposit Pre-Note Date","2-Direct Deposit Account Type","2-Direct Deposit Transit #","2-Direct Deposit Account #","2-Direct Deposit Skip Pre-Note","2-Direct Deposit Pre-Note Date","2-Direct Deposit Amount Type","2- Direct Deposit Amount","3-Direct Deposit Account Type","3-Direct Deposit Transit #","3-Direct Deposit Account #","3-Direct Deposit Skip Pre-Note","3-Direct Deposit Pre-Note Date","3-Direct Deposit Amount Type","3-Direct Deposit Amount","4-Direct Deposit Account Type","4-Direct Deposit Transit #","4-Direct Deposit Account #","4-Direct Deposit Skip Pre-Note","4-Direct Deposit Pre-Note Date","4-Direct Deposit Amount Type","4-Direct Deposit Amount","5-Direct Deposit Account Type","5-Direct Deposit Transit #","5-Direct Deposit Account #","5-Direct Deposit Skip Pre-Note","5-Direct Deposit Pre-Note Date","5-Direct Deposit Amount Type","5-Direct Deposit Amount","Sync with WebTime","WebTime Badge Number","WebTime Charge Rate","Benefit Class","Benefit Class Setup Effective Date","Benefit Salary Effective Date","Benefit Salary","Measure ACA Eligibility","Do Not Apply Administrative Period","Has Disability","Disability","1-Disability Classification","2-Disability Classification","3-Disability Classification","4-Disability Classification","5-Disability Classification","Is Veteran","Veteran","User Name","User Enabled","User Deactivation Date","1-Contact Priority","1-Contact Last Name","1-Contact First Name","1-Contact Relationship","1-Contact Primary Phone","1-Contact Home Phone","1-Contact Work Phone","1-Contact Work Phone Ext","1-Contact Mobile Phone","1-Contact Pager","1-Contact Email","1-Contact Address same as Emp","1-Contact Address 1","1-Contact Address 2","1-Contact City","1-Contact State","1-Contact ZipCode","1-Contact Country","1-Contact County","1-Contact Notes","2-Contact Priority","2-Contact Last Name","2-Contact First Name","2-Contact Relationship","2-Contact Primary Phone","2-Contact Home Phone","2-Contact Work Phone","2-Contact Work Phone Ext","2-Contact Mobile Phone","2-Contact Pager","2-Contact Email","2-Contact Address same as Emp","2-Contact Address 1","2-Contact Address 2","2-Contact City","2-Contact State","2-Contact ZipCode","2-Contact Country","2-Contact County","2-Contact Notes","3-Contact Priority","3-Contact Last Name","3-Contact First Name","3-Contact Relationship","3-Contact Primary Phone","3-Contact Home Phone","3-Contact Work Phone","3-Contact Work Phone Ext","3-Contact Mobile Phone","3-Contact Pager","3-Contact Email","3-Contact Address same as Emp","3-Contact Address 1","3-Contact Address 2","3-Contact City","3-Contact State","3-Contact ZipCode","3-Contact Country","3-Contact County","3-Contact Notes","Work Authorization","Attested Date","I-94 Admission Number","Foreign Passport Number","Country of Issuance","USCIS or Admission Number","Visa Type","Expiry Date","I-9 Verified","I-9 Date Verified","I-9 Notes","SSN Verified","SSN Date Verified","SSN Notes","1-Addtl Rate Eff Date","1-Addtl Rate End Date","1-Addtl Rate Change Reason","1-Addtl Rate Code","1-Addtl Rate","1-Addtl Rate Per","1-Addtl Rate Notes","1-Addtl Rate Job Code","1-Addtl Rate Shift","1-Addtl Rate Cost Center 1","1-Addtl Rate Cost Center 2","1-Addtl Rate Cost Center 3","2-Addtl Rate Eff Date","2-Addtl Rate End Date","2-Addtl Rate Change Reason","2-Addtl Rate Code","2-Addtl Rate","2-Addtl Rate Per","2-Addtl Rate Notes","2-Addtl Rate Job Code","2-Addtl Rate Shift","2-Addtl Rate Cost Center 1","2-Addtl Rate Cost Center 2","2-Addtl Rate Cost Center 3","3-Addtl Rate Eff Date","3-Addtl Rate End Date","3-Addtl Rate Change Reason","3-Addtl Rate Code","3-Addtl Rate","3-Addtl Rate Per","3-Addtl Rate Notes","3-Addtl Rate Job Code","3-Addtl Rate Shift","3-Addtl Rate Cost Center 1","3-Addtl Rate Cost Center 2","3-Addtl Rate Cost Center 3","4-Addtl Rate Eff Date","4-Addtl Rate End Date","4-Addtl Rate Change Reason","4-Addtl Rate Code","4-Addtl Rate","4-Addtl Rate Per","4-Addtl Rate Notes","4-Addtl Rate Job Code","4-Addtl Rate Shift","4-Addtl Rate Cost Center 1","4-Addtl Rate Cost Center 2","4-Addtl Rate Cost Center 3","5-Addtl Rate Eff Date","5-Addtl Rate End Date","5-Addtl Rate Change Reason","5-Addtl Rate Code","5-Addtl Rate","5-Addtl Rate Per","5-Addtl Rate Notes","5-Addtl Rate Job Code","5-Addtl Rate Shift","5-Addtl Rate Cost Center 1","5-Addtl Rate Cost Center 2","5-Addtl Rate Cost Center 3","6-Addtl Rate Eff Date","6-Addtl Rate End Date","6-Addtl Rate Change Reason","6-Addtl Rate Code","6-Addtl Rate","6-Addtl Rate Per","6-Addtl Rate Notes","6-Addtl Rate Job Code","6-Addtl Rate Shift","6-Addtl Rate Cost Center 1","6-Addtl Rate Cost Center 2","6-Addtl Rate Cost Center 3","7-Addtl Rate Eff Date","7-Addtl Rate End Date","7-Addtl Rate Change Reason","7-Addtl Rate Code","7-Addtl Rate","7-Addtl Rate Per","7-Addtl Rate Notes","7-Addtl Rate Job Code","7-Addtl Rate Shift","7-Addtl Rate Cost Center 1","7-Addtl Rate Cost Center 2","7-Addtl Rate Cost Center 3","8-Addtl Rate Eff Date","8-Addtl Rate End Date","8-Addtl Rate Change Reason","8-Addtl Rate Code","8-Addtl Rate","8-Addtl Rate Per","8-Addtl Rate Notes","8-Addtl Rate Job Code","8-Addtl Rate Shift","8-Addtl Rate Cost Center 1","8-Addtl Rate Cost Center 2","8-Addtl Rate Cost Center 3","9-Addtl Rate Eff Date","9-Addtl Rate End Date","9-Addtl Rate Change Reason","9-Addtl Rate Code","9-Addtl Rate","9-Addtl Rate Per","9-Addtl Rate Notes","9-Addtl Rate Job Code","9-Addtl Rate Shift","9-Addtl Rate Cost Center 1","9-Addtl Rate Cost Center 2","9-Addtl Rate Cost Center 3","10-Addtl Rate Eff Date","10-Addtl Rate End Date","10-Addtl Rate Change Reason","10-Addtl Rate Code","10-Addtl Rate","10-Addtl Rate Per","10-Addtl Rate Notes","10-Addtl Rate Job Code","10-Addtl Rate Shift","10-Addtl Rate Cost Center 1","10-Addtl Rate Cost Center 2","10-Addtl Rate Cost Center 3","11-Addtl Rate Eff Date","11-Addtl Rate End Date","11-Addtl Rate Change Reason","11-Addtl Rate Code","11-Addtl Rate","11-Addtl Rate Per","11-Addtl Rate Notes","11-Addtl Rate Job Code","11-Addtl Rate Shift","11-Addtl Rate Cost Center 1","11-Addtl Rate Cost Center 2","11-Addtl Rate Cost Center 3","12-Addtl Rate Eff Date","12-Addtl Rate End Date","12-Addtl Rate Change Reason","12-Addtl Rate Code","12-Addtl Rate","12-Addtl Rate Per","12-Addtl Rate Notes","12-Addtl Rate Job Code","12-Addtl Rate Shift","12-Addtl Rate Cost Center 1","12-Addtl Rate Cost Center 2","12-Addtl Rate Cost Center 3","13-Addtl Rate Eff Date","13-Addtl Rate End Date","13-Addtl Rate Change Reason","13-Addtl Rate Code","13-Addtl Rate","13-Addtl Rate Per","13-Addtl Rate Notes","13-Addtl Rate Job Code","13-Addtl Rate Shift","13-Addtl Rate Cost Center 1","13-Addtl Rate Cost Center 2","13-Addtl Rate Cost Center 3","Custom Text 1","Custom Text 2","Custom Text 3","Custom Text 4","Custom Text 5","Custom Text 6","Custom Text 7","Custom Text 8","Custom DropDown 1","Custom DropDown 2","Custom DropDown 3","Custom DropDown 4","Custom DropDown 5","Custom DropDown 6","Custom DropDown 7","Custom DropDown 8","Custom Date 1","Custom Date 2","Custom Date 3","Custom Date 4","Custom Date 5","Custom Date 6","Custom Date 7","Custom Date 8","Custom Number 1","Custom Number 2","Custom Number 3","Custom Number 4","Custom Number 5","Custom Number 6","Custom Number 7","Custom Number 8","Custom Boolean 1","Custom Boolean 2","Custom Boolean 3","Custom Boolean 4","Custom Boolean 5","Custom Boolean 6","Custom Boolean 7","Custom Boolean 8"];
+
+// ── Changes file column indices (0-based) ────────────────────────────────────
+// A=0  B=1  C=2  D=3  E=4  F=5  G=6  H=7  I=8  J=9
+// K=10 L=11 M=12 N=13 O=14 P=15 Q=16 R=17 S=18
+const SRC = { co:4, id:10, recordType:11, supervisorCo:15, supervisor:12, reviewerCo:16, reviewer:13, costCenter1:17, costCenter2:18, payGroup:14, deptDesc:3, dept:7 };
+
+// ── Output template column indices (0-based) ─────────────────────────────────
+// A=0 B=1 C=2  AU=46 AV=47  AX=49 AY=50 AZ=51 BA=52  BJ=61
+const DST = { co:0, id:1, recordType:2, supervisorCo:46, supervisor:47, reviewerCo:49, reviewer:50, costCenter1:51, costCenter2:52, payGroup:61 };
+
+// ── Validation ───────────────────────────────────────────────────────────────
+const FLAGGED_DEPTS = ["andvaris", "medix", "nulogic", "people share"];
+
+// ── UI helpers ───────────────────────────────────────────────────────────────
+function showStatus(msg, type) {
+  const area = document.getElementById("status-area");
+  const el   = document.getElementById("status-msg");
+  area.style.display = "block";
+  el.className = "status-msg status-" + type;
+  el.textContent = msg;
+}
+
+function showErrorPanel(errors) {
+  const panel = document.getElementById("error-panel");
+  const list  = document.getElementById("error-list");
+  list.innerHTML = "";
+  errors.forEach(e => {
+    const li = document.createElement("li");
+    li.textContent = e;
+    list.appendChild(li);
+  });
+  panel.style.display = "block";
+}
+
+function resetUI() {
+  document.getElementById("status-area").style.display   = "none";
+  document.getElementById("error-panel").style.display   = "none";
+  document.getElementById("results-panel").style.display = "none";
+  document.getElementById("reset-btn").style.display     = "none";
+  document.getElementById("result-sabal").style.display  = "none";
+  document.getElementById("result-ahm").style.display    = "none";
+  document.getElementById("result-skipped").style.display = "none";
+  document.getElementById("btn-sabal").style.display     = "none";
+  document.getElementById("btn-ahm").style.display       = "none";
+  document.getElementById("file-input").value            = "";
+}
+
+// ── Date extraction from filename ────────────────────────────────────────────
+function extractDate(filename) {
+  const m = filename.match(/(\d{2}-\d{2}-\d{4})/);
+  if (m) return m[1];
+  // Fallback: today
+  const t = new Date();
+  const mm = String(t.getMonth()+1).padStart(2,"0");
+  const dd = String(t.getDate()).padStart(2,"0");
+  const yy = t.getFullYear();
+  return `${mm}-${dd}-${yy}`;
+}
+
+// ── Build output rows for one company ────────────────────────────────────────
+function buildOutputRows(dataRows) {
+  return dataRows.map(row => {
+    const out = new Array(501).fill("");
+    out[DST.co]           = row[SRC.co]          ?? "";
+    out[DST.id]           = row[SRC.id]          ?? "";
+    out[DST.recordType]   = row[SRC.recordType]  ?? "";
+    out[DST.supervisorCo] = row[SRC.supervisorCo]?? "";
+    out[DST.supervisor]   = row[SRC.supervisor]  ?? "";
+    out[DST.reviewerCo]   = row[SRC.reviewerCo]  ?? "";
+    out[DST.reviewer]     = row[SRC.reviewer]    ?? "";
+    out[DST.costCenter1]  = row[SRC.costCenter1] ?? "";
+    out[DST.costCenter2]  = row[SRC.costCenter2] ?? "";
+    out[DST.payGroup]     = row[SRC.payGroup]    ?? "";
+    return out;
+  });
+}
+
+// ── Download helper ───────────────────────────────────────────────────────────
+function downloadWorkbook(outputRows, filename) {
+  const aoa = [TEMPLATE_HEADERS, ...outputRows];
+  const ws  = XLSX.utils.aoa_to_sheet(aoa);
+  const wb  = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+  const buf  = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([buf], { type: "application/octet-stream" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ── Main processing ───────────────────────────────────────────────────────────
+function processFile(file) {
+  if (!file.name.toLowerCase().endsWith(".xlsx")) {
+    showStatus("Please drop an .xlsx file.", "warning");
+    return;
+  }
+
+  showStatus("Reading file…", "processing");
+
+  const reader = new FileReader();
+  reader.onerror = () => showStatus("Error reading file.", "warning");
+  reader.onload  = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb   = XLSX.read(data, { type: "array", raw: false });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+      if (rows.length < 2) {
+        showStatus("No data rows found in the file.", "warning");
+        document.getElementById("reset-btn").style.display = "block";
+        return;
+      }
+
+      const dataRows = rows.slice(1); // skip header row
+
+      // ── Blocking validation ──────────────────────────────────────────────
+      const errors = [];
+      for (let i = 0; i < dataRows.length; i++) {
+        const deptDesc = String(dataRows[i][SRC.deptDesc]).trim();
+        const dept     = String(dataRows[i][SRC.dept]).trim();
+        if (FLAGGED_DEPTS.includes(deptDesc.toLowerCase()) &&
+            deptDesc.toLowerCase() !== dept.toLowerCase()) {
+          errors.push(`Row ${i+2}: Department Description="${deptDesc}" but Department="${dept}"`);
+        }
+      }
+      if (errors.length > 0) {
+        showStatus(`Validation failed — ${errors.length} row(s) must be corrected before processing.`, "warning");
+        showErrorPanel(errors);
+        document.getElementById("reset-btn").style.display = "block";
+        return;
+      }
+
+      // ── Split by company code ────────────────────────────────────────────
+      const sabalRows   = [];
+      const ahmRows     = [];
+      const skippedRows = [];
+      const unknownCodes = new Set();
+
+      dataRows.forEach(row => {
+        const code = String(row[SRC.co]).trim();
+        if      (code === "335308") sabalRows.push(row);
+        else if (code === "159040") ahmRows.push(row);
+        else { skippedRows.push(row); unknownCodes.add(code || "(blank)"); }
+      });
+
+      if (sabalRows.length === 0 && ahmRows.length === 0) {
+        showStatus("No rows matched company codes 335308 or 159040.", "warning");
+        document.getElementById("reset-btn").style.display = "block";
+        return;
+      }
+
+      // ── Build output rows (no download yet) ─────────────────────────────
+      const dateStr = extractDate(file.name);
+      const sabalOutputRows = sabalRows.length > 0 ? buildOutputRows(sabalRows) : null;
+      const ahmOutputRows   = ahmRows.length   > 0 ? buildOutputRows(ahmRows)   : null;
+
+      // ── Results summary ──────────────────────────────────────────────────
+      const panel = document.getElementById("results-panel");
+      panel.style.display = "block";
+
+      if (sabalOutputRows) {
+        document.getElementById("count-sabal").textContent = sabalRows.length;
+        document.getElementById("result-sabal").style.display = "flex";
+        const btnSabal = document.getElementById("btn-sabal");
+        btnSabal.textContent = `⬇ Sabal_Manager Assignments_${dateStr}.xlsx`;
+        btnSabal.onclick = () => downloadWorkbook(sabalOutputRows, `Sabal_Manager Assignments_${dateStr}.xlsx`);
+        btnSabal.style.display = "block";
+      }
+      if (ahmOutputRows) {
+        document.getElementById("count-ahm").textContent = ahmRows.length;
+        document.getElementById("result-ahm").style.display = "flex";
+        const btnAhm = document.getElementById("btn-ahm");
+        btnAhm.textContent = `⬇ AHM_Manager Assignments_${dateStr}.xlsx`;
+        btnAhm.onclick = () => downloadWorkbook(ahmOutputRows, `AHM_Manager Assignments_${dateStr}.xlsx`);
+        btnAhm.style.display = "block";
+      }
+      if (skippedRows.length > 0) {
+        document.getElementById("count-skipped").textContent = skippedRows.length;
+        document.getElementById("result-skipped").title = "Codes: " + [...unknownCodes].join(", ");
+        document.getElementById("result-skipped").style.display = "flex";
+      }
+
+      const fileList = [
+        sabalOutputRows ? `Sabal_Manager Assignments_${dateStr}.xlsx` : null,
+        ahmOutputRows   ? `AHM_Manager Assignments_${dateStr}.xlsx`   : null
+      ].filter(Boolean).join(" and ");
+
+      showStatus(`Done! Click the button(s) below to download: ${fileList}`, "success");
+      document.getElementById("reset-btn").style.display = "block";
+
+    } catch (err) {
+      showStatus("Failed to process file: " + err.message, "warning");
+      document.getElementById("reset-btn").style.display = "block";
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Drag-and-drop wiring ──────────────────────────────────────────────────────
+const dropZone = document.getElementById("drop-zone");
+const fileInput = document.getElementById("file-input");
+
+dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
+dropZone.addEventListener("dragleave", ()  => { dropZone.classList.remove("dragover"); });
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
+fileInput.addEventListener("change", () => {
+  if (fileInput.files[0]) processFile(fileInput.files[0]);
+});
+</script>
+</body>
+</html>
