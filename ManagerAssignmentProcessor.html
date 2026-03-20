@@ -6,50 +6,245 @@
 <title>Manager Assignment Processor</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+  @keyframes orbit {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: #000000;
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 24px;
-  }
-  .card {
-    background: #111111;
-    border-radius: 12px;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.6);
-    border: 1px solid #222222;
-    padding: 40px;
-    width: 100%;
-    max-width: 640px;
-  }
-  h1 {
-    font-size: 1.4rem;
-    font-weight: 700;
     color: #ffffff;
-    margin-bottom: 6px;
+    position: relative;
+    overflow: hidden;
   }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(120, 0, 200, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(160, 32, 240, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, rgba(80, 0, 160, 0.05) 0%, transparent 50%);
+    animation: orbit 60s linear infinite;
+    pointer-events: none;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(120, 0, 200, 0.015) 2px,
+      rgba(120, 0, 200, 0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .card {
+    background: rgba(8, 8, 12, 0.85);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border-radius: 20px;
+    border: 1px solid rgba(120, 40, 200, 0.12);
+    padding: 48px;
+    width: 100%;
+    max-width: 680px;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(160, 32, 240, 0.2) 0%, transparent 40%, transparent 60%, rgba(120, 0, 200, 0.15) 100%);
+    z-index: -1;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    padding: 1px;
+  }
+
+  .card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(160, 32, 240, 0.03), transparent);
+    animation: scanline 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .card-glow {
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .card-glow.top-left {
+    top: -120px;
+    left: -100px;
+    background: rgba(140, 30, 220, 0.12);
+    animation: pulse-glow 6s ease-in-out infinite;
+  }
+
+  .card-glow.bottom-right {
+    bottom: -120px;
+    right: -100px;
+    background: rgba(100, 0, 180, 0.08);
+    animation: pulse-glow 6s ease-in-out infinite 3s;
+  }
+
+  h1 {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 8px;
+    letter-spacing: -0.03em;
+    position: relative;
+    z-index: 1;
+  }
+
+  h1 .accent {
+    background: linear-gradient(135deg, #c084fc, #a855f7, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   .subtitle {
     font-size: 0.88rem;
-    color: #888888;
-    margin-bottom: 28px;
+    color: #6b6b7b;
+    margin-bottom: 36px;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
   }
+
   #drop-zone {
-    border: 2.5px dashed #333333;
-    border-radius: 10px;
-    padding: 48px 24px;
+    border: 1px solid rgba(120, 40, 200, 0.15);
+    border-radius: 16px;
+    padding: 56px 24px;
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    background: #0d0d0d;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(12, 8, 20, 0.6);
     position: relative;
+    overflow: hidden;
+    z-index: 1;
   }
+
+  #drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 16px;
+    background: conic-gradient(
+      from 0deg,
+      transparent,
+      rgba(160, 32, 240, 0.15),
+      transparent,
+      rgba(120, 0, 200, 0.1),
+      transparent
+    );
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    padding: 1px;
+  }
+
+  #drop-zone::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 200px;
+    height: 200px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(140, 30, 220, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+    transition: all 0.4s ease;
+  }
+
+  #drop-zone:hover {
+    border-color: rgba(160, 32, 240, 0.3);
+    background: rgba(18, 10, 30, 0.7);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(120, 0, 200, 0.1);
+  }
+
+  #drop-zone:hover::before { opacity: 1; }
+
+  #drop-zone:hover::after {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(140, 30, 220, 0.1) 0%, transparent 70%);
+  }
+
   #drop-zone.dragover {
-    border-color: #7b2fbe;
-    background: #1a0a2e;
+    border-color: rgba(160, 32, 240, 0.5);
+    background: rgba(25, 12, 40, 0.8);
+    box-shadow:
+      0 0 30px rgba(120, 0, 200, 0.15),
+      inset 0 0 30px rgba(120, 0, 200, 0.05);
   }
+
+  #drop-zone.dragover::before {
+    opacity: 1;
+    animation: orbit 4s linear infinite;
+  }
+
   #drop-zone input[type="file"] {
     position: absolute;
     inset: 0;
@@ -57,89 +252,206 @@
     cursor: pointer;
     width: 100%;
     height: 100%;
+    z-index: 2;
   }
-  .drop-icon { font-size: 2.4rem; margin-bottom: 10px; }
-  .drop-label { font-size: 1rem; font-weight: 600; color: #ffffff; }
-  .drop-hint { font-size: 0.82rem; color: #888888; margin-top: 6px; }
-  #status-area { margin-top: 24px; display: none; }
+
+  .drop-icon {
+    font-size: 2.2rem;
+    margin-bottom: 16px;
+    animation: float 4s ease-in-out infinite;
+    position: relative;
+    z-index: 1;
+  }
+
+  .drop-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #d4d4e0;
+    letter-spacing: -0.01em;
+    position: relative;
+    z-index: 1;
+  }
+
+  .drop-hint {
+    font-size: 0.78rem;
+    color: #505060;
+    margin-top: 10px;
+    position: relative;
+    z-index: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  #status-area { margin-top: 28px; display: none; position: relative; z-index: 1; }
+
   .status-msg {
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 0.92rem;
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-size: 0.86rem;
     font-weight: 500;
+    line-height: 1.5;
+    backdrop-filter: blur(10px);
   }
-  .status-processing { background: #1a1400; color: #d4a017; border: 1px solid #7a5500; }
-  .status-success   { background: #0a1a0f; color: #4ade80; border: 1px solid #166534; }
-  .status-warning   { background: #1a1000; color: #fb923c; border: 1px solid #92400e; }
+
+  .status-processing {
+    background: rgba(80, 60, 10, 0.15);
+    color: #e0b830;
+    border: 1px solid rgba(200, 160, 30, 0.2);
+  }
+
+  .status-success {
+    background: rgba(10, 80, 30, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.2);
+  }
+
+  .status-warning {
+    background: rgba(80, 40, 10, 0.15);
+    color: #fb923c;
+    border: 1px solid rgba(251, 146, 60, 0.2);
+  }
+
   #error-panel {
-    margin-top: 20px;
-    background: #1a0505;
-    border: 1.5px solid #7f1d1d;
-    border-radius: 8px;
-    padding: 16px 18px;
+    margin-top: 24px;
+    background: rgba(60, 10, 10, 0.15);
+    border: 1px solid rgba(248, 113, 113, 0.15);
+    border-radius: 12px;
+    padding: 18px 20px;
     display: none;
+    backdrop-filter: blur(10px);
+    position: relative;
+    z-index: 1;
   }
-  #error-panel h3 { color: #f87171; font-size: 0.95rem; margin-bottom: 10px; }
+
+  #error-panel h3 {
+    color: #f87171;
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
   #error-list { list-style: none; }
+
   #error-list li {
-    font-size: 0.84rem;
-    color: #fca5a5;
-    padding: 3px 0;
-    border-bottom: 1px solid #3f0f0f;
+    font-size: 0.8rem;
+    color: #e8a0a0;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(248, 113, 113, 0.08);
+    line-height: 1.5;
   }
+
   #error-list li:last-child { border-bottom: none; }
+
   #results-panel {
-    margin-top: 20px;
+    margin-top: 24px;
     display: none;
+    position: relative;
+    z-index: 1;
   }
+
   .result-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 9px 14px;
-    border-radius: 6px;
+    padding: 14px 18px;
+    border-radius: 12px;
     font-size: 0.88rem;
-    margin-bottom: 6px;
-    background: #1a1a1a;
+    margin-bottom: 8px;
+    background: rgba(15, 12, 22, 0.6);
+    border: 1px solid rgba(120, 40, 200, 0.1);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
   }
-  .result-row .label { color: #cccccc; font-weight: 500; }
-  .result-row .count { color: #a855f7; font-weight: 700; font-size: 1rem; }
-  .result-row.skipped { background: #1a1400; }
-  .result-row.skipped .count { color: #d4a017; }
+
+  .result-row:hover {
+    background: rgba(20, 15, 30, 0.7);
+    border-color: rgba(120, 40, 200, 0.2);
+    transform: translateX(4px);
+  }
+
+  .result-row .label { color: #9090a0; font-weight: 500; }
+
+  .result-row .count {
+    color: #c084fc;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-shadow: 0 0 20px rgba(192, 132, 252, 0.3);
+  }
+
+  .result-row.skipped { border-color: rgba(200, 160, 30, 0.1); }
+  .result-row.skipped .count { color: #e0b830; text-shadow: 0 0 20px rgba(224, 184, 48, 0.2); }
+
   #reset-btn {
-    margin-top: 22px;
+    margin-top: 24px;
     width: 100%;
-    padding: 11px;
-    background: #7b2fbe;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    padding: 14px;
+    background: transparent;
+    color: #b0b0c0;
+    border: 1px solid rgba(120, 40, 200, 0.15);
+    border-radius: 12px;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
     display: none;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 1;
   }
-  #reset-btn:hover { background: #6a27a8; }
+
+  #reset-btn:hover {
+    background: rgba(120, 40, 200, 0.08);
+    border-color: rgba(160, 32, 240, 0.3);
+    color: #ffffff;
+    box-shadow: 0 0 20px rgba(120, 0, 200, 0.1);
+  }
+
   .dl-btn {
     width: 100%;
-    padding: 11px;
-    background: #7b2fbe;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #7c3aed 0%, #6b21a8 50%, #581c87 100%);
+    background-size: 200% auto;
     color: #fff;
     border: none;
-    border-radius: 8px;
-    font-size: 0.92rem;
+    border-radius: 12px;
+    font-size: 0.86rem;
     font-weight: 600;
     cursor: pointer;
     margin-top: 8px;
     text-align: left;
+    transition: all 0.3s ease;
+    letter-spacing: -0.01em;
+    position: relative;
+    overflow: hidden;
   }
-  .dl-btn:hover { background: #6a27a8; }
+
+  .dl-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .dl-btn:hover {
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow:
+      0 6px 24px rgba(120, 0, 200, 0.25),
+      0 0 40px rgba(120, 0, 200, 0.1);
+  }
+
+  .dl-btn:active { transform: translateY(0); }
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>Manager Assignment Processor</h1>
+  <div class="card-glow top-left"></div>
+  <div class="card-glow bottom-right"></div>
+  <h1>Manager Assignment <span class="accent">Processor</span></h1>
   <p class="subtitle">Drop a Changes_[Date].xlsx file to generate Sabal and AHM assignment files.</p>
 
   <div id="drop-zone">
