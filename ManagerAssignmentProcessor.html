@@ -492,7 +492,7 @@ const TEMPLATE_HEADERS = ["co","id","Record Type","First Name","Last Name","Midd
 // ── Changes file column indices (0-based) ────────────────────────────────────
 // A=0  B=1  C=2  D=3  E=4  F=5  G=6  H=7  I=8  J=9
 // K=10 L=11 M=12 N=13 O=14 P=15 Q=16 R=17 S=18
-const SRC = { co:9, id:10, recordType:11, supervisorCo:15, supervisor:12, reviewerCo:16, reviewer:13, costCenter1:17, costCenter2:18, payGroup:14, deptDesc:3 };
+const SRC = { co:9, id:10, recordType:11, supervisorCo:15, supervisor:12, reviewerCo:16, reviewer:13, costCenter1:17, costCenter2:18, payGroup:14, deptDesc:3, startDate:8 };
 
 // ── Output template column indices (0-based) ─────────────────────────────────
 // A=0 B=1 C=2  AU=46 AV=47  AX=49 AY=50 AZ=51 BA=52  BJ=61
@@ -545,8 +545,29 @@ function extractDate(filename) {
   return `${mm}-${dd}-${yy}`;
 }
 
+// ── PayGroup eligibility check ────────────────────────────────────────────────
+// Returns false (blank paygroup) if start date is future, UNLESS upload is on
+// a Wednesday and the start date falls within the same Sun–Sat calendar week.
+function payGroupAllowed(startVal, uploadDay) {
+  if (!startVal) return true;
+  const raw = startVal instanceof Date ? startVal : new Date(startVal);
+  if (isNaN(raw.getTime())) return true;
+  const startDay = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
+  if (startDay <= uploadDay) return true; // past or today
+  // Future start date — allow only on Wednesday imports within same week (Sun–Sat)
+  if (uploadDay.getDay() === 3) {
+    const saturday = new Date(uploadDay);
+    saturday.setDate(uploadDay.getDate() + (6 - uploadDay.getDay())); // +3 days
+    if (startDay <= saturday) return true;
+  }
+  return false;
+}
+
 // ── Build output rows for one company ────────────────────────────────────────
-function buildOutputRows(dataRows) {
+function buildOutputRows(dataRows, uploadDateStr) {
+  const [mm, dd, yyyy] = uploadDateStr.split('-').map(Number);
+  const uploadDay = new Date(yyyy, mm - 1, dd);
+
   return dataRows.map(row => {
     const out = new Array(501).fill("");
     out[DST.co]           = row[SRC.co]          ?? "";
@@ -558,7 +579,8 @@ function buildOutputRows(dataRows) {
     out[DST.reviewer]     = row[SRC.reviewer]    ?? "";
     out[DST.costCenter1]  = row[SRC.costCenter1] ?? "";
     out[DST.costCenter2]  = row[SRC.costCenter2] ?? "";
-    out[DST.payGroup]     = row[SRC.payGroup]    ?? "";
+    out[DST.payGroup]     = payGroupAllowed(row[SRC.startDate], uploadDay)
+                              ? (row[SRC.payGroup] ?? "") : "";
     return out;
   });
 }
@@ -595,7 +617,7 @@ function processFile(file) {
   reader.onload  = (e) => {
     try {
       const data = new Uint8Array(e.target.result);
-      const wb   = XLSX.read(data, { type: "array", raw: false });
+      const wb   = XLSX.read(data, { type: "array", raw: false, cellDates: true });
       const ws   = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
@@ -641,7 +663,7 @@ function processFile(file) {
 
       // ── Build output rows (no download yet) ─────────────────────────────
       const dateStr = extractDate(file.name);
-      const catchOutputRows = buildOutputRows(catchRows);
+      const catchOutputRows = buildOutputRows(catchRows, dateStr);
 
       // ── Results summary ──────────────────────────────────────────────────
       const panel = document.getElementById("results-panel");
