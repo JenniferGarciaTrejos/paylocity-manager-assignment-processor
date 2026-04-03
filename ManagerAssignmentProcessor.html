@@ -492,7 +492,7 @@ const TEMPLATE_HEADERS = ["co","id","Record Type","First Name","Last Name","Midd
 // ── Changes file column indices (0-based) ────────────────────────────────────
 // A=0  B=1  C=2  D=3  E=4  F=5  G=6  H=7  I=8  J=9
 // K=10 L=11 M=12 N=13 O=14 P=15 Q=16 R=17 S=18
-const SRC = { co:4, id:10, recordType:11, supervisorCo:15, supervisor:12, reviewerCo:16, reviewer:13, costCenter1:17, costCenter2:18, payGroup:14, deptDesc:3, dept:7 };
+const SRC = { co:9, id:10, recordType:11, supervisorCo:15, supervisor:12, reviewerCo:16, reviewer:13, costCenter1:17, costCenter2:18, payGroup:14, deptDesc:3 };
 
 // ── Output template column indices (0-based) ─────────────────────────────────
 // A=0 B=1 C=2  AU=46 AV=47  AX=49 AY=50 AZ=51 BA=52  BJ=61
@@ -611,10 +611,8 @@ function processFile(file) {
       const errors = [];
       for (let i = 0; i < dataRows.length; i++) {
         const deptDesc = String(dataRows[i][SRC.deptDesc]).trim();
-        const dept     = String(dataRows[i][SRC.dept]).trim();
-        if (FLAGGED_DEPTS.includes(deptDesc.toLowerCase()) &&
-            deptDesc.toLowerCase() !== dept.toLowerCase()) {
-          errors.push(`Row ${i+2}: Department Description="${deptDesc}" but Department="${dept}"`);
+        if (FLAGGED_DEPTS.includes(deptDesc.toLowerCase())) {
+          errors.push(`Row ${i+2}: Department Description="${deptDesc}" — this department cannot be processed here`);
         }
       }
       if (errors.length > 0) {
