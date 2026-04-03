@@ -452,7 +452,7 @@
   <div class="card-glow top-left"></div>
   <div class="card-glow bottom-right"></div>
   <h1>Manager Assignment <span class="accent">Processor</span></h1>
-  <p class="subtitle">Drop a Changes_[Date].xlsx file to generate Sabal and AHM assignment files.</p>
+  <p class="subtitle">Drop a Changes_[Date].xlsx file to generate the Catch assignment file.</p>
 
   <div id="drop-zone">
     <input type="file" id="file-input" accept=".xlsx">
@@ -471,20 +471,15 @@
   </div>
 
   <div id="results-panel">
-    <div id="result-sabal" class="result-row" style="display:none">
-      <span class="label">Sabal (335308)</span>
-      <span class="count" id="count-sabal">0</span>
-    </div>
-    <div id="result-ahm" class="result-row" style="display:none">
-      <span class="label">AHM (159040)</span>
-      <span class="count" id="count-ahm">0</span>
+    <div id="result-catch" class="result-row" style="display:none">
+      <span class="label">Catch (361966)</span>
+      <span class="count" id="count-catch">0</span>
     </div>
     <div id="result-skipped" class="result-row skipped" style="display:none">
       <span class="label">Skipped (unknown company codes)</span>
       <span class="count" id="count-skipped">0</span>
     </div>
-    <button id="btn-sabal" class="dl-btn" style="display:none">⬇ Download Sabal file</button>
-    <button id="btn-ahm" class="dl-btn" style="display:none">⬇ Download AHM file</button>
+    <button id="btn-catch" class="dl-btn" style="display:none">⬇ Download Catch file</button>
   </div>
 
   <button id="reset-btn" onclick="resetUI()">Process Another File</button>
@@ -532,11 +527,9 @@ function resetUI() {
   document.getElementById("error-panel").style.display   = "none";
   document.getElementById("results-panel").style.display = "none";
   document.getElementById("reset-btn").style.display     = "none";
-  document.getElementById("result-sabal").style.display  = "none";
-  document.getElementById("result-ahm").style.display    = "none";
+  document.getElementById("result-catch").style.display  = "none";
   document.getElementById("result-skipped").style.display = "none";
-  document.getElementById("btn-sabal").style.display     = "none";
-  document.getElementById("btn-ahm").style.display       = "none";
+  document.getElementById("btn-catch").style.display     = "none";
   document.getElementById("file-input").value            = "";
 }
 
@@ -632,61 +625,44 @@ function processFile(file) {
       }
 
       // ── Split by company code ────────────────────────────────────────────
-      const sabalRows   = [];
-      const ahmRows     = [];
+      const catchRows   = [];
       const skippedRows = [];
       const unknownCodes = new Set();
 
       dataRows.forEach(row => {
         const code = String(row[SRC.co]).trim();
-        if      (code === "335308") sabalRows.push(row);
-        else if (code === "159040") ahmRows.push(row);
+        if (code === "361966") catchRows.push(row);
         else { skippedRows.push(row); unknownCodes.add(code || "(blank)"); }
       });
 
-      if (sabalRows.length === 0 && ahmRows.length === 0) {
-        showStatus("No rows matched company codes 335308 or 159040.", "warning");
+      if (catchRows.length === 0) {
+        showStatus("No rows matched company code 361966.", "warning");
         document.getElementById("reset-btn").style.display = "block";
         return;
       }
 
       // ── Build output rows (no download yet) ─────────────────────────────
       const dateStr = extractDate(file.name);
-      const sabalOutputRows = sabalRows.length > 0 ? buildOutputRows(sabalRows) : null;
-      const ahmOutputRows   = ahmRows.length   > 0 ? buildOutputRows(ahmRows)   : null;
+      const catchOutputRows = buildOutputRows(catchRows);
 
       // ── Results summary ──────────────────────────────────────────────────
       const panel = document.getElementById("results-panel");
       panel.style.display = "block";
 
-      if (sabalOutputRows) {
-        document.getElementById("count-sabal").textContent = sabalRows.length;
-        document.getElementById("result-sabal").style.display = "flex";
-        const btnSabal = document.getElementById("btn-sabal");
-        btnSabal.textContent = `⬇ Sabal_Manager Assignments_${dateStr}.xlsx`;
-        btnSabal.onclick = () => downloadWorkbook(sabalOutputRows, `Sabal_Manager Assignments_${dateStr}.xlsx`);
-        btnSabal.style.display = "block";
-      }
-      if (ahmOutputRows) {
-        document.getElementById("count-ahm").textContent = ahmRows.length;
-        document.getElementById("result-ahm").style.display = "flex";
-        const btnAhm = document.getElementById("btn-ahm");
-        btnAhm.textContent = `⬇ AHM_Manager Assignments_${dateStr}.xlsx`;
-        btnAhm.onclick = () => downloadWorkbook(ahmOutputRows, `AHM_Manager Assignments_${dateStr}.xlsx`);
-        btnAhm.style.display = "block";
-      }
+      document.getElementById("count-catch").textContent = catchRows.length;
+      document.getElementById("result-catch").style.display = "flex";
+      const btnCatch = document.getElementById("btn-catch");
+      btnCatch.textContent = `⬇ Catch_Manager Assignments_${dateStr}.xlsx`;
+      btnCatch.onclick = () => downloadWorkbook(catchOutputRows, `Catch_Manager Assignments_${dateStr}.xlsx`);
+      btnCatch.style.display = "block";
+
       if (skippedRows.length > 0) {
         document.getElementById("count-skipped").textContent = skippedRows.length;
         document.getElementById("result-skipped").title = "Codes: " + [...unknownCodes].join(", ");
         document.getElementById("result-skipped").style.display = "flex";
       }
 
-      const fileList = [
-        sabalOutputRows ? `Sabal_Manager Assignments_${dateStr}.xlsx` : null,
-        ahmOutputRows   ? `AHM_Manager Assignments_${dateStr}.xlsx`   : null
-      ].filter(Boolean).join(" and ");
-
-      showStatus(`Done! Click the button(s) below to download: ${fileList}`, "success");
+      showStatus(`Done! Click the button below to download: Catch_Manager Assignments_${dateStr}.xlsx`, "success");
       document.getElementById("reset-btn").style.display = "block";
 
     } catch (err) {
